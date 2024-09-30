@@ -96,10 +96,11 @@
 //! ## Troubleshooting
 //! See [document](https://github.com/almindor/mipidsi/blob/master/docs/TROUBLESHOOTING.md)
 
-use dcs::Dcs;
+use dcs::{Dcs, WriteMemoryStart};
 use display_interface::WriteOnlyDataCommand;
 
 pub mod error;
+use embedded_graphics_core::pixelcolor::Rgb565;
 use error::Error;
 
 use embedded_hal::delay::DelayNs;
@@ -114,7 +115,7 @@ pub use builder::{Builder, NoResetPin};
 pub mod dcs;
 
 pub mod models;
-use models::Model;
+use models::{Model, ST7789};
 
 mod graphics;
 
@@ -145,6 +146,46 @@ where
     madctl: dcs::SetAddressMode,
     // State monitor for sleeping TODO: refactor to a Model-connected state machine
     sleeping: bool,
+}
+
+impl<DI, RST> Display<DI, ST7789, RST>
+where
+    DI: WriteOnlyDataCommand,
+    RST: OutputPin,
+{
+    ///
+    /// Sets pixel colors in a rectangular region.
+    ///
+    /// The color values from the `colors` iterator will be drawn to the given region starting
+    /// at the top left corner and continuing, row first, to the bottom right corner. No bounds
+    /// checking is performed on the `colors` iterator and drawing will wrap around if the
+    /// iterator returns more color values than the number of pixels in the given region.
+    ///
+    /// This is a low level function, which isn't intended to be used in regular user code.
+    /// Consider using the [`fill_contiguous`](https://docs.rs/embedded-graphics/latest/embedded_graphics/draw_target/trait.DrawTarget.html#method.fill_contiguous)
+    /// function from the `embedded-graphics` crate as an alternative instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx` - x coordinate start
+    /// * `sy` - y coordinate start
+    /// * `ex` - x coordinate end
+    /// * `ey` - y coordinate end
+    /// * `colors` - anything that can provide `IntoIterator<Item = u16>` to iterate over pixel data
+    pub fn set_pixels_from_buf(
+        &mut self,
+        sx: u16,
+        sy: u16,
+        ex: u16,
+        ey: u16,
+        pixels_buf: &mut [u8],
+    ) -> Result<(), Error> {
+        self.set_address_window(sx, sy, ex, ey)?;
+        self.model
+            .write_pixels_from_buf(&mut self.dcs, pixels_buf)?;
+
+        Ok(())
+    }
 }
 
 impl<DI, M, RST> Display<DI, M, RST>

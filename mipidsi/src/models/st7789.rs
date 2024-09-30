@@ -17,6 +17,25 @@ use crate::{
 /// Interfaces implemented by the [display-interface](https://crates.io/crates/display-interface) are supported.
 pub struct ST7789;
 
+impl ST7789 {
+    /// Write pixels from a u16 buffer, assuming they are in the correct format
+    pub fn write_pixels_from_buf<DI>(
+        &mut self,
+        dcs: &mut Dcs<DI>,
+        pixels_buf: &mut [u8],
+    ) -> Result<(), Error>
+    where
+        DI: WriteOnlyDataCommand,
+    {
+        dcs.write_command(WriteMemoryStart)?;
+
+        // let buf = DataFormat::U16LE(pixels_buf);
+        let buf = DataFormat::U8(pixels_buf);
+        dcs.di.send_data(buf)?;
+        Ok(())
+    }
+}
+
 impl Model for ST7789 {
     type ColorFormat = Rgb565;
     const FRAMEBUFFER_SIZE: (u16, u16) = (240, 320);
